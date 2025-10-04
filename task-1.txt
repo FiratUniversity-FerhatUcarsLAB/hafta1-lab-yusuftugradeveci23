@@ -2,3 +2,69 @@
 AD-SOYAD:
 
 Lütfen seçtiğiniz algoritmaya ait çözümü ve diğer isterleri aşağıya ekleyiniz:
+
+ALGORITMA SınavCalismaPlaniOlustur
+    Girdi: DersListesi, ToplamGun, GunlukCalismaSaati
+    Çıktı: CalismaPlani
+
+    1. CalismaPlani ← BOŞ
+
+    2. Her Ders için zorluk derecesi ve önem katsayısı belirle
+       // Zorluk: 1-5 arası, Önem: 1-5 arası
+       // Kullanıcıdan veya önceden tanımlanmış olabilir
+
+    3. Her Ders için GerekliSure hesapla:
+         GerekliSure = (Zorluk * Önem * 2) saat
+
+    4. ToplamGerekliSure = Tüm(GerekliSure) değerlerinin toplamı
+
+    5. Eğer (ToplamGerekliSure > ToplamGun * GunlukCalismaSaati) ise
+          Uyarı("Tüm konular için zaman yetmiyor, çalışma süresini artır veya önceliklerini gözden geçir")
+       SON
+
+    6. Dersleri Önem ve Zorluk’a göre sırala (önce yüksek olanlar)
+
+    7. Gün = 1
+       DERS_INDEX = 1
+
+       WHILE Gün ≤ ToplamGun TEKRARLA
+            KalanSaat = GunlukCalismaSaati
+
+            WHILE (KalanSaat > 0 VE DERS_INDEX ≤ DersListesiUzunlugu) TEKRARLA
+                 Ders = DersListesi[DERS_INDEX]
+
+                 Eğer Ders.GerekliSure > 0 ise
+                     Eğer (KalanSaat ≥ 2) ise
+                          AyrilanSure = 2  // en az 2 saat blok
+                     Değilse
+                          AyrilanSure = KalanSaat
+                     SON
+
+                     Eğer AyrilanSure > Ders.GerekliSure ise
+                          AyrilanSure = Ders.GerekliSure
+                     SON
+
+                     CalismaPlani[Gün].Ekle(Ders, AyrilanSure)
+
+                     Ders.GerekliSure = Ders.GerekliSure - AyrilanSure
+                     KalanSaat = KalanSaat - AyrilanSure
+                 SON
+
+                 Eğer Ders.GerekliSure = 0 ise
+                     DERS_INDEX = DERS_INDEX + 1
+                 SON
+            SON WHILE
+
+            Gün = Gün + 1
+       SON WHILE
+
+    8. Tekrar Planı Oluştur:
+         FOR her Ders in DersListesi
+             Eğer Ders.Zorluk ≥ 4 ise
+                 Her 3 günde bir tekrar planına ekle
+             Aksi halde
+                 Her 5 günde bir tekrar planına ekle
+         SON FOR
+
+    9. Çıktı olarak CalismaPlani’ni döndür
+SON
