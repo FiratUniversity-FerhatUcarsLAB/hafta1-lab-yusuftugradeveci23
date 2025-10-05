@@ -1,4 +1,61 @@
-Öğrenci No:
-AD-SOYAD:
+Öğrenci No:250541095
+AD-SOYAD:Yusuf Tuğra Deveci
 
 Lütfen seçtiğiniz algoritmaya ait çözümü ve diğer isterleri aşağıya ekleyiniz:
+Algoritma CAY_DEMLEME()
+    // Başlangıç durumlarını kontrol et
+    Eğer DemlikTemizMi() = HAYIR ise
+        DemlikYika()
+    BitirEğer
+
+    Eğer BardakTemizMi() = HAYIR ise
+        BardaklariYika()
+    BitirEğer
+
+    // Su hazırlama
+    KettleDoldur(Su)
+    SuIsinmayaBaslat()
+
+    Tekrar
+        Bekle(1 dakika)
+        Eğer SuSicakligi() >= 100 derece ise
+            SuKaynadi ← EVET
+        Aksi
+            SuKaynadi ← HAYIR
+        BitirEğer
+    Durum: SuKaynadi = HAYIR
+    BitirTekrar
+
+    // Çayı ekleme
+    CayiDemligeEkle(OlculuKasik)
+
+    // Demleme işlemi
+    KaynamisSuyuDemligeDök()
+    CayiKaristir()
+
+    BeklemeSuresi ← 0
+    Tekrar
+        Bekle(1 dakika)
+        BeklemeSuresi ← BeklemeSuresi + 1
+        Eğer BeklemeSuresi >= 10 dakika ise
+            DemlemeTamamlandi ← EVET
+        Aksi
+            DemlemeTamamlandi ← HAYIR
+        BitirEğer
+    Durum: DemlemeTamamlandi = HAYIR
+    BitirTekrar
+
+    // Çayı servis etme
+    Eğer MisafirVarMi() = EVET ise
+        BardakSayisi ← MisafirSayisi + 1
+    Aksi
+        BardakSayisi ← 1
+    BitirEğer
+
+    HerBardakIcin (i ← 1; i ≤ BardakSayisi; i ← i + 1)
+        ÇayiBardagaDök()
+        SuEkle(IstenilenDemOrani)
+    SonHer
+
+    Yazdır("Çay hazır, afiyet olsun!")
+SonAlgoritma
