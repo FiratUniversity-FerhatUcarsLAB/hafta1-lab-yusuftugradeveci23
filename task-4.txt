@@ -1,4 +1,56 @@
-Öğrenci No:
-AD-SOYAD:
+Öğrenci No 250541095
+AD-SOYAD:Yusuf Tuğra Deveci
 
 Lütfen seçtiğiniz algoritmaya ait çözümü ve diğer isterleri aşağıya ekleyiniz:
+Algoritma RenkKaristir(BaslangicRengi, HedefRenk, AdimBoyutu)
+    // Renkler RGB (K, Y, M) yani (R, G, B) olarak temsil ediliyor
+    MevcutRenk ← BaslangicRengi
+
+    // Döngü: Mevcut renk hedef renge ulaşana kadar devam et
+    Tekrar
+        // Her bileşen için ayrı ayrı kontrol et
+        Eğer MevcutRenk.R < HedefRenk.R ise
+            MevcutRenk.R ← MevcutRenk.R + AdimBoyutu
+            Eğer MevcutRenk.R > HedefRenk.R ise
+                MevcutRenk.R ← HedefRenk.R
+            BitirEğer
+        AksiEğer MevcutRenk.R > HedefRenk.R ise
+            MevcutRenk.R ← MevcutRenk.R - AdimBoyutu
+            Eğer MevcutRenk.R < HedefRenk.R ise
+                MevcutRenk.R ← HedefRenk.R
+            BitirEğer
+        BitirEğer
+
+        Eğer MevcutRenk.G < HedefRenk.G ise
+            MevcutRenk.G ← MevcutRenk.G + AdimBoyutu
+            Eğer MevcutRenk.G > HedefRenk.G ise
+                MevcutRenk.G ← HedefRenk.G
+            BitirEğer
+        AksiEğer MevcutRenk.G > HedefRenk.G ise
+            MevcutRenk.G ← MevcutRenk.G - AdimBoyutu
+            Eğer MevcutRenk.G < HedefRenk.G ise
+                MevcutRenk.G ← HedefRenk.G
+            BitirEğer
+        BitirEğer
+
+        Eğer MevcutRenk.B < HedefRenk.B ise
+            MevcutRenk.B ← MevcutRenk.B + AdimBoyutu
+            Eğer MevcutRenk.B > HedefRenk.B ise
+                MevcutRenk.B ← HedefRenk.B
+            BitirEğer
+        AksiEğer MevcutRenk.B > HedefRenk.B ise
+            MevcutRenk.B ← MevcutRenk.B - AdimBoyutu
+            Eğer MevcutRenk.B < HedefRenk.B ise
+                MevcutRenk.B ← HedefRenk.B
+            BitirEğer
+        BitirEğer
+
+        // Şu anki karışım sonucunu ekrana yazdır
+        Yazdır("Mevcut Renk:", MevcutRenk)
+
+    // Çıkış koşulu: Mevcut renk hedef renge eşit olana kadar devam et
+    Durum: MevcutRenk ≠ HedefRenk
+    BitirTekrar
+
+    Yazdır("Hedef renge ulaşıldı:", MevcutRenk)
+SonAlgoritma
