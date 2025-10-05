@@ -1,4 +1,62 @@
-Öğrenci No:
-AD-SOYAD:
+Öğrenci No:250541095
+AD-SOYAD:Yusuf Tuğra Deveci
 
 Lütfen seçtiğiniz algoritmaya ait çözümü ve diğer isterleri aşağıya ekleyiniz:
+ALGORITMA MuzikKoleksiyonuDuzenle
+
+  BAŞLAT
+
+  // 1. Koleksiyon yükleme
+  MüzikKoleksiyonunuYükle()
+
+  // 2. Kullanıcıya düzenleme kriterlerini sor
+  YAZ "Müzikleri neye göre düzenlemek istersiniz? (Sanatçı, Albüm, Tür, Yıl)"
+  KRITER ← KullanıcıdanVeriAl()
+
+  // 3. Koleksiyondaki her şarkı için işlemleri başlat
+  HER ŞARKI için MüzikKoleksiyonunda TEKRARLA
+    
+    // Eksik bilgi kontrolü
+    EĞER ŞARKI.Sanatçı BOŞSA
+        YAZ "Şarkının sanatçı bilgisi eksik: " + ŞARKI.Ad
+        YAZ "Sanatçı adı giriniz:"
+        ŞARKI.Sanatçı ← KullanıcıdanVeriAl()
+    BİTİR EĞER
+
+    EĞER ŞARKI.Tür BOŞSA
+        YAZ "Şarkının tür bilgisi eksik: " + ŞARKI.Ad
+        ŞARKI.Tür ← "Bilinmeyen"
+    BİTİR EĞER
+
+    // Düzenleme kriterine göre geçici kategori belirle
+    EĞER KRITER = "Sanatçı" İSE
+        KATEGORI ← ŞARKI.Sanatçı
+    DEĞİLSE EĞER KRITER = "Albüm" İSE
+        KATEGORI ← ŞARKI.Albüm
+    DEĞİLSE EĞER KRITER = "Tür" İSE
+        KATEGORI ← ŞARKI.Tür
+    DEĞİLSE EĞER KRITER = "Yıl" İSE
+        KATEGORI ← ŞARKI.Yıl
+    DEĞİLSE
+        KATEGORI ← "Diğer"
+    BİTİR EĞER
+
+    // Şarkıyı uygun klasöre/gruba ekle
+    ŞarkıyıKategoriyeEkle(ŞARKI, KATEGORI)
+
+  SON TEKRARLA
+
+  // 4. İşlem tamamlanınca sonuçları göster
+  YAZ "Müzik koleksiyonu " + KRITER + " kriterine göre düzenlendi."
+
+  // 5. Kullanıcıya yeniden düzenlemek isteyip istemediğini sor
+  YAZ "Başka bir kritere göre düzenlemek ister misiniz? (E/H)"
+  CEVAP ← KullanıcıdanVeriAl()
+
+  EĞER CEVAP = "E" İSE
+      GİT BAŞLANGIÇA
+  DEĞİLSE
+      YAZ "Düzenleme işlemi bitti. İyi dinlemeler!"
+  BİTİR EĞER
+
+  BİTİR
