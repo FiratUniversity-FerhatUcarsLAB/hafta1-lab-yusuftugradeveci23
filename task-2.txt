@@ -2,81 +2,110 @@
 AD-SOYAD:Yusuf Tuğra Deveci
 
 Lütfen seçtiğiniz algoritmaya ait çözümü ve diğer isterleri aşağıya ekleyiniz:
-FUNCTION EnIyiHamleSec(oyuncu, oyunTahtasi, oyuncularListesi):
+GİRDİ: OyunDurumu (oyuncular, tahta, mülkler, para, pozisyonlar, hapishane, kartlar...)
+ÇIKTI: EnİyiHamle (geçerli oyuncu için)
 
-    // 1. Zar atma
-    zarSonucu = ZarAt()
-    yeniPozisyon = (oyuncu.pozisyon + zarSonucu) % oyunTahtasi.uzunluk
-    oyuncu.pozisyon = yeniPozisyon
-    
-    kare = oyunTahtasi[yeniPozisyon]
-    
-    // 2. Eğer özel kareye geldiyse (Şans, Kutu, Hapishane vb.)
-    IF kare.tur == "SansKart" OR kare.tur == "KutuKart":
-        kart = KartCek(kare.tur)
-        IsleKart(kart, oyuncu, oyunTahtasi)
-        RETURN "Kart Çekildi"
-    
-    ELSE IF kare.tur == "Hapishane":
-        oyuncu.hapiste = TRUE
-        RETURN "Hapishaneye Girildi"
-    
-    // 3. Eğer boş arsa ise
-    ELSE IF kare.tur == "Arsa" AND kare.sahip == NULL:
-        IF oyuncu.para >= kare.fiyat:
-            IF KararVer_YatirimKarlimi(kare, oyuncu, oyunTahtasi):
-                SatinAl(oyuncu, kare)
-                RETURN "Arsa Satın Alındı"
-            ELSE:
-                RETURN "Satın Alınmadı"
-    
-    // 4. Eğer başkasına ait arsa ise
-    ELSE IF kare.tur == "Arsa" AND kare.sahip != oyuncu:
-        kira = HesaplaKira(kare)
-        oyuncu.para -= kira
-        kare.sahip.para += kira
-        
-        IF oyuncu.para < 0:
-            IF ElindeHipoteklenebilirMal(oyuncu):
-                HipotekYap(oyuncu)
-                RETURN "Kira ödendi, hipotek yapıldı"
-            ELSE:
-                OyundanElendi(oyuncu)
-                RETURN "Oyuncu elendi"
-        ELSE:
-            RETURN "Kira ödendi"
-    
-    // 5. Eğer oyuncunun üzerinde ev/hotel kurma şansı varsa
-    IF OyuncununTumRengiVarMi(oyuncu, kare.renkGrubu):
-        IF oyuncu.para >= EvMaliyeti(kare):
-            IF KararVer_EvKurmakKarlimi(oyuncu, kare):
-                EvKur(oyuncu, kare)
-                RETURN "Ev/Havuz eklendi"
-    
-    // 6. Son çare: oyuncunun nakit durumu kötü ise
-    IF oyuncu.para < KritikLimit:
-        IF ElindeHipoteklenebilirMal(oyuncu):
-            HipotekYap(oyuncu)
-            RETURN "Hipotek yapıldı"
-    
-    RETURN "Hamle tamamlandı"
+SABİTLER:
+  SİMÜLASYON_SAYISI = 100
+  NAKİT_REZERVİ = 200
+  RİSK_TERCİHİ = 0.6
+  SATIN_AL_EŞİK = 1.05
 
-//////////////////////////////////////////////////////////
+FONKSİYON EnIyiHamleyiSec(OyunDurumu):
+    oyuncu ← OyunDurumu.aktif_oyuncu
+    hamleler ← YasalHamleleriUret(oyuncu, OyunDurumu)
+    en_iyi_hamle ← null
+    en_iyi_skor ← -sonsuz
 
-FUNCTION KararVer_YatirimKarlimi(kare, oyuncu, oyunTahtasi):
-    // Basit yatırım değerlendirme:
-    kiraGetirisi = BeklenenKiraGetirisi(kare, oyunTahtasi)
-    IF kiraGetirisi > kare.fiyat * 0.2:
-        RETURN TRUE
-    ELSE:
-        RETURN FALSE
+    HER hamle İÇİN hamleler:
+        skor ← HeuristikSkor(hamle, OyunDurumu, oyuncu)
+        EĞER OnemliHamle(hamle) İSE
+            mc ← HamleyiSimuleEt(OyunDurumu, oyuncu, hamle, SİMÜLASYON_SAYISI)
+            skor ← SkorBirleştir(skor, mc)
+        SON
+        EĞER NakitRezerviniZorluyor(hamle, OyunDurumu, oyuncu) İSE
+            skor ← skor - Ceza
+        SON
+        EĞER skor > en_iyi_skor İSE
+            en_iyi_skor ← skor
+            en_iyi_hamle ← hamle
+        SON
+    DÖNDÜR en_iyi_hamle
+SON
 
-FUNCTION KararVer_EvKurmakKarlimi(oyuncu, kare):
-    // Yatırımın geri dönüşünü değerlendir
-    potansiyelKira = HesaplaPotansiyelKira(kare, "evKur")
-    maliyet = EvMaliyeti(kare)
-    
-    IF potansiyelKira > maliyet * 0.25 AND oyuncu.para > (maliyet * 2):
-        RETURN TRUE
-    ELSE:
-        RETURN FALSE
+FONKSİYON YasalHamleleriUret(oyuncu, OyunDurumu):
+    hamleler ← []
+    kare ← oyuncu.pozisyon
+    EĞER tahta[kare] boş_mülk İSE:
+        hamleler ← {SATIN_AL, GEÇ}
+    HER mülk İÇİN oyuncu.mülkleri:
+        EĞER EvKurulabilir(mülk): ekle(BİNA_KUR)
+        EĞER mülk.ev_sayısı > 0: ekle(EV_SAT)
+        EĞER ipotekli_değil: ekle(İPOTEK)
+        DEĞİLSE: ekle(İPOTEK_AÇ)
+    EĞER oyuncu.hapiste:
+        ekle(50TL_ÖDE), ekle(KART_KULLAN), ekle(ZAR_DENEME)
+    hamleler ← hamleler + OlasıTakaslar(oyuncu, OyunDurumu)
+    ekle(TUR_BITİR)
+    DÖNDÜR hamleler
+SON
+
+FONKSİYON HeuristikSkor(hamle, OyunDurumu, oyuncu):
+    SEÇİM hamle.tipi:
+        DURUM SATIN_AL:
+            değer ← MülkDegeri(hamle.mülk, oyuncu, OyunDurumu)
+            skor ← değer / fiyat
+            EĞER oyuncu.nakit - fiyat < NAKİT_REZERVİ:
+                skor ← skor * 0.7
+        DURUM BİNA_KUR: skor ← BinaKurDeğeri(hamle)
+        DURUM İPOTEK: skor ← İpotekDeğeri(hamle)
+        DURUM TAKAS: skor ← TakasDeğeri(hamle)
+        VARSAYILAN: skor ← KüçükPozitif
+    DÖNDÜR skor
+SON
+
+FONKSİYON MülkDegeri(mülk, oyuncu, OyunDurumu):
+    olasılık ← DüşmeOlasılığı(mülk)
+    kira ← mülk.temel_kira
+    kalan_tur ← KalanTurTahmini(OyunDurumu)
+    gelir ← olasılık * kira * kalan_tur
+    bonus ← EĞER RenkSetTamamlanıyor(mülk, oyuncu) İSE MonopolyBonusu YOKSA 0
+    maliyet ← mülk.fiyat * RİSK_TERCİHİ * 0.5
+    DÖNDÜR gelir + bonus - maliyet
+SON
+
+FONKSİYON HamleyiSimuleEt(durum, oyuncu, hamle, N):
+    toplam ← 0
+    TEKRAR i=1...N:
+        kopya ← DurumKopyala(durum)
+        HamleyiUygula(kopya, oyuncu, hamle)
+        toplam ← toplam + RastgeleOyna(kopya, derinlik=50)
+    DÖNDÜR toplam / N
+SON
+
+FONKSİYON RastgeleOyna(durum, derinlik):
+    adım ← 0
+    İKEN OyunBitmedi(durum) VE adım < derinlik:
+        cp ← durum.aktif_oyuncu
+        hamleler ← YasalHamleleriUret(cp, durum)
+        seçilen ← HeuristikVeyaRastgele(hamleler)
+        HamleyiUygula(durum, cp, seçilen)
+        adım ← adım + 1
+    DÖNDÜR OrijinalOyuncuKazancı(durum)
+SON
+
+FONKSİYON AçıkArtırma(mülk, durum):
+    katılımcılar ← iflas_etmemiş oyuncular
+    teklif ← 0; kazanan ← null
+    İKEN katılımcı_sayısı > 1:
+        HER b İÇİN katılımcılar:
+            max ← MaxTeklif(b, durum)
+            EĞER max <= teklif: çıkar(b)
+            DEĞİLSE:
+                yeni ← TeklifBelirle(b, teklif, mülk)
+                EĞER yeni > teklif: teklif ← yeni; kazanan ← b
+    EĞER kazanan ≠ null: MülkAktar(mülk, kazanan, teklif, durum)
+SON
+
+  
+      
