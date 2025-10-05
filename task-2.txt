@@ -1,4 +1,82 @@
-Öğrenci No:
-AD-SOYAD:
+Öğrenci No:250541095
+AD-SOYAD:Yusuf Tuğra Deveci
 
 Lütfen seçtiğiniz algoritmaya ait çözümü ve diğer isterleri aşağıya ekleyiniz:
+FUNCTION EnIyiHamleSec(oyuncu, oyunTahtasi, oyuncularListesi):
+
+    // 1. Zar atma
+    zarSonucu = ZarAt()
+    yeniPozisyon = (oyuncu.pozisyon + zarSonucu) % oyunTahtasi.uzunluk
+    oyuncu.pozisyon = yeniPozisyon
+    
+    kare = oyunTahtasi[yeniPozisyon]
+    
+    // 2. Eğer özel kareye geldiyse (Şans, Kutu, Hapishane vb.)
+    IF kare.tur == "SansKart" OR kare.tur == "KutuKart":
+        kart = KartCek(kare.tur)
+        IsleKart(kart, oyuncu, oyunTahtasi)
+        RETURN "Kart Çekildi"
+    
+    ELSE IF kare.tur == "Hapishane":
+        oyuncu.hapiste = TRUE
+        RETURN "Hapishaneye Girildi"
+    
+    // 3. Eğer boş arsa ise
+    ELSE IF kare.tur == "Arsa" AND kare.sahip == NULL:
+        IF oyuncu.para >= kare.fiyat:
+            IF KararVer_YatirimKarlimi(kare, oyuncu, oyunTahtasi):
+                SatinAl(oyuncu, kare)
+                RETURN "Arsa Satın Alındı"
+            ELSE:
+                RETURN "Satın Alınmadı"
+    
+    // 4. Eğer başkasına ait arsa ise
+    ELSE IF kare.tur == "Arsa" AND kare.sahip != oyuncu:
+        kira = HesaplaKira(kare)
+        oyuncu.para -= kira
+        kare.sahip.para += kira
+        
+        IF oyuncu.para < 0:
+            IF ElindeHipoteklenebilirMal(oyuncu):
+                HipotekYap(oyuncu)
+                RETURN "Kira ödendi, hipotek yapıldı"
+            ELSE:
+                OyundanElendi(oyuncu)
+                RETURN "Oyuncu elendi"
+        ELSE:
+            RETURN "Kira ödendi"
+    
+    // 5. Eğer oyuncunun üzerinde ev/hotel kurma şansı varsa
+    IF OyuncununTumRengiVarMi(oyuncu, kare.renkGrubu):
+        IF oyuncu.para >= EvMaliyeti(kare):
+            IF KararVer_EvKurmakKarlimi(oyuncu, kare):
+                EvKur(oyuncu, kare)
+                RETURN "Ev/Havuz eklendi"
+    
+    // 6. Son çare: oyuncunun nakit durumu kötü ise
+    IF oyuncu.para < KritikLimit:
+        IF ElindeHipoteklenebilirMal(oyuncu):
+            HipotekYap(oyuncu)
+            RETURN "Hipotek yapıldı"
+    
+    RETURN "Hamle tamamlandı"
+
+//////////////////////////////////////////////////////////
+
+FUNCTION KararVer_YatirimKarlimi(kare, oyuncu, oyunTahtasi):
+    // Basit yatırım değerlendirme:
+    kiraGetirisi = BeklenenKiraGetirisi(kare, oyunTahtasi)
+    IF kiraGetirisi > kare.fiyat * 0.2:
+        RETURN TRUE
+    ELSE:
+        RETURN FALSE
+
+FUNCTION KararVer_EvKurmakKarlimi(oyuncu, kare):
+    // Yatırımın geri dönüşünü değerlendir
+    potansiyelKira = HesaplaPotansiyelKira(kare, "evKur")
+    maliyet = EvMaliyeti(kare)
+    
+    IF potansiyelKira > maliyet * 0.25 AND oyuncu.para > (maliyet * 2):
+        RETURN TRUE
+    ELSE:
+        RETURN FALSE
