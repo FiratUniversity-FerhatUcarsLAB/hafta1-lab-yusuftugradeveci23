@@ -3,68 +3,183 @@ AD-SOYAD:Yusuf Tuğra Deveci
 
 Lütfen seçtiğiniz algoritmaya ait çözümü ve diğer isterleri aşağıya ekleyiniz:
 
-ALGORITMA SınavCalismaPlaniOlustur
-    Girdi: DersListesi, ToplamGun, GunlukCalismaSaati
-    Çıktı: CalismaPlani
+GİRİŞ:
+  Sınavlar = [
+    {id, isim, tarih (YYYY-MM-DD), konular: [konu_id,...], önem (1-5)}
+  ]
+  Konular = [
+    {id, isim, tahmini_dk, zorluk(1-5), önem(1-5), önkoşullar: [konu_id,...],
+     mastery (0.0-1.0), sm2:{repetitions, interval_days, ease}}
+  ]
+  Takvim = kullanıcı_günlük_müsaitlik (her gün için zaman_blokları: {tarih, start, end})
+  Tercihler = {min_oturum_dk, max_oturum_dk, pomodoro_dk, break_dk, hedef_mastery (örn 0.85)}
+  BUGÜN = current_date
 
-    1. CalismaPlani ← BOŞ
+ÇIKTI:
+  Plan = [Oturum: {tarih, start, süre_dk, konu_id, tür: (çalışma/tekrar/test)}]
 
-    2. Her Ders için zorluk derecesi ve önem katsayısı belirle
-       // Zorluk: 1-5 arası, Önem: 1-5 arası
-       // Kullanıcıdan veya önceden tanımlanmış olabilir
+SABİTLER:
+  MIN_OTURUM = Tercihler.min_oturum_dk
+  MAX_OTURUM = Tercihler.max_oturum_dk
+  POMODORO = Tercihler.pomodoro_dk
+  BREAK = Tercihler.break_dk
+  HEDEF_MASTERY = Tercihler.hedef_mastery
+  DEADLINE_WINDOW_DAYS = 30   # aciliyeti hesaplamak için pencere
 
-    3. Her Ders için GerekliSure hesapla:
-         GerekliSure = (Zorluk * Önem * 2) saat
+# --- YARDIMCI FONKSİYONLAR ---
 
-    4. ToplamGerekliSure = Tüm(GerekliSure) değerlerinin toplamı
+FONKSİYON DaysUntil(date):
+    RETURN max(0, (date - BUGÜN).days)
 
-    5. Eğer (ToplamGerekliSure > ToplamGun * GunlukCalismaSaati) ise
-          Uyarı("Tüm konular için zaman yetmiyor, çalışma süresini artır veya önceliklerini gözden geçir")
-       SON
+FONKSİYON UrgencyFactor(exam_date):
+    d ← DaysUntil(exam_date)
+    IF d >= DEADLINE_WINDOW_DAYS: RETURN 1.0
+    ELSE RETURN 1.0 + (DEADLINE_WINDOW_DAYS - d) / DEADLINE_WINDOW_DAYS   # 1.0..2.0 arası
 
-    6. Dersleri Önem ve Zorluk’a göre sırala (önce yüksek olanlar)
+FONKSİYON TopicPriority(topic, exam):
+    days_left ← max(1, DaysUntil(exam.tarih))
+    urgency ← UrgencyFactor(exam.tarih)
+    importance ← topic.önem  # 1..5
+    difficulty ← topic.zorluk # 1..5
+    mastery_gap ← 1.0 - topic.mastery
+    size_factor ← sqrt(max(1, topic.tahmini_dk) / 30.0)  # büyük konuları normalize et
+    priority ← (importance * urgency * difficulty * mastery_gap) / size_factor
+    RETURN priority
 
-    7. Gün = 1
-       DERS_INDEX = 1
+FONKSİYON AllPendingTopics(sınavlar, konular):
+    pending = []
+    FOR each exam IN sınavlar:
+        FOR each konu_id IN exam.konular:
+            konu ← Konular.find(k => k.id == konu_id)
+            IF konu.mastery < HEDEF_MASTERY:
+                pending.add({konu, exam})
+    RETURN pending
 
-       WHILE Gün ≤ ToplamGun TEKRARLA
-            KalanSaat = GunlukCalismaSaati
+FONKSİYON SplitIntoSessions(konu):
+    total ← max(10, konu.tahmini_dk)
+    session_list ← []
+    remaining ← total
+    WHILE remaining > 0:
+        s ← min(MAX_OTURUM, max(MIN_OTURUM, round(remaining / ceil(remaining / MAX_OTURUM))))
+        session_list.add(s)
+        remaining ← remaining - s
+    RETURN session_list
 
-            WHILE (KalanSaat > 0 VE DERS_INDEX ≤ DersListesiUzunlugu) TEKRARLA
-                 Ders = DersListesi[DERS_INDEX]
+FONKSİYON FindNextAvailableSlot(takvim, earliest_date, duration_dk):
+    # Gün gün bak, her günün bloklarında uygun süre bul
+    FOR day FROM earliest_date TO max_exam_date:
+        blocks ← takvim.blocks_on(day)
+        FOR block IN blocks:
+            available_dk ← block.end - block.start - already_scheduled_on(block)
+            IF available_dk >= duration_dk:
+                start_time ← earliest_start_in_block(block, duration_dk)
+                RETURN {tarih: day, start: start_time}
+    RETURN null
 
-                 Eğer Ders.GerekliSure > 0 ise
-                     Eğer (KalanSaat ≥ 2) ise
-                          AyrilanSure = 2  // en az 2 saat blok
-                     Değilse
-                          AyrilanSure = KalanSaat
-                     SON
+FONKSİYON CanScheduleBeforeExam(slot_date, exam_date):
+    RETURN slot_date <= exam_date
 
-                     Eğer AyrilanSure > Ders.GerekliSure ise
-                          AyrilanSure = Ders.GerekliSure
-                     SON
+FONKSİYON ScheduleSession(plan, session):
+    plan.add(session)
+    mark_time_block_as_used(session)   # takvim güncellenir
 
-                     CalismaPlani[Gün].Ekle(Ders, AyrilanSure)
+# Basit SM-2 benzeri güncelleme (oturum sonrası)
+FONKSİYON UpdateSM2AndMastery(konu, quality, session_dk):
+    # quality: 0-5 kullanıcı/otomatik değerlendirme
+    IF quality < 3:
+        konu.sm2.repetitions ← 0
+        konu.sm2.interval_days ← 1
+        konu.sm2.ease ← max(1.3, konu.sm2.ease - 0.2)
+    ELSE:
+        konu.sm2.repetitions ← konu.sm2.repetitions + 1
+        IF konu.sm2.repetitions == 1: konu.sm2.interval_days ← 1
+        ELSE IF konu.sm2.repetitions == 2: konu.sm2.interval_days ← 6
+        ELSE: konu.sm2.interval_days ← round(konu.sm2.interval_days * konu.sm2.ease)
+        konu.sm2.ease ← min(2.5, konu.sm2.ease + 0.1 * (5 - quality))
+    # Mastery update (basit, öğrenme kazancı oturum süresi ve quality'e bağlı)
+    gain_base ← min(0.4, session_dk / 120.0)   # maksimum kısa vadeli kazanım
+    mastery_gain ← gain_base * (quality / 5.0)
+    konu.mastery ← min(1.0, konu.mastery + mastery_gain)
 
-                     Ders.GerekliSure = Ders.GerekliSure - AyrilanSure
-                     KalanSaat = KalanSaat - AyrilanSure
-                 SON
+FONKSİYON ScheduleReviewIfNeeded(konu, plan):
+    # SM-2'e göre sonraki tekrar tarihini planla
+    next_day ← BUGÜN + konu.sm2.interval_days
+    slot ← FindNextAvailableSlot(Takvim, next_day, min(MIN_OTURUM, konu.tahmini_dk))
+    IF slot != null:
+        ScheduleSession(plan, {tarih: slot.tarih, start: slot.start, süre_dk: MIN_OTURUM, konu_id: konu.id, tür:"tekrar"})
 
-                 Eğer Ders.GerekliSure = 0 ise
-                     DERS_INDEX = DERS_INDEX + 1
-                 SON
-            SON WHILE
+# --- ANA PLAN ÜRETME ALGORİTMASI ---
 
-            Gün = Gün + 1
-       SON WHILE
+FONKSİYON GenerateStudyPlan(sınavlar, konular, takvim):
+    Plan ← []
+    pending ← AllPendingTopics(sınavlar, konular)
+    SORT pending by TopicPriority(descending)
 
-    8. Tekrar Planı Oluştur:
-         FOR her Ders in DersListesi
-             Eğer Ders.Zorluk ≥ 4 ise
-                 Her 3 günde bir tekrar planına ekle
-             Aksi halde
-                 Her 5 günde bir tekrar planına ekle
-         SON FOR
+    # 1) Öncelik sırasına göre her konuyu seanslara böl ve uygun yerlere yerleştir
+    FOR each item IN pending:
+        konu ← item.konu
+        exam ← item.exam
+        sessions ← SplitIntoSessions(konu)
+        FOR each s_dk IN sessions:
+            slot ← FindNextAvailableSlot(takvim, BUGÜN, s_dk)
+            IF slot == null OR NOT CanScheduleBeforeExam(slot.tarih, exam.tarih):
+                # Eğer yer yoksa: dengele veya uyarı üret
+                # 1) Daha sonra bir boşluk bulmaya çalış
+                slot ← FindNextAvailableSlot(takvim, BUGÜN, MIN_OTURUM)
+                IF slot == null:
+                    LOG "Uyarı: Yeterli uygun zaman yok — kullanıcıya bildirim"
+                    BREAK
+            ScheduleSession(Plan, {tarih: slot.tarih, start: slot.start, süre_dk: s_dk, konu_id: konu.id, tür:"çalışma"})
+        # Her konudan sonra ilk tekrar/SM-2 planı koy
+        ScheduleReviewIfNeeded(konu, Plan)
 
-    9. Çıktı olarak CalismaPlani’ni döndür
-SON
+    # 2) Pratik testleri planla: her sınav için
+    FOR each exam IN sınavlar:
+        days_before ← [14, 7, 3, 1]  # örnek aralıklar
+        FOR db IN days_before:
+            test_day ← exam.tarih - db
+            IF test_day >= BUGÜN:
+                slot ← FindNextAvailableSlot(takvim, test_day, 60)  # 60 dk test
+                IF slot != null:
+                    ScheduleSession(Plan, {tarih: slot.tarih, start: slot.start, süre_dk:60, konu_id:null, tür:"pratik_test", sınav_id:exam.id})
+                ELSE:
+                    LOG "Test planlanamadı: " + exam.isim + " için " + db + " gün öncesi"
+
+    # 3) Son kontroller: çakışmaları çöz, uzun ardışık oturumlara molalar ekle
+    ResolveConflictsAndInsertBreaks(Plan, takvim)
+
+    RETURN Plan
+
+# --- PLANI İZLEME VE ADAPTASYON (GERÇEK ZAMANLI) ---
+
+FONKSİYON DailyReviewAndAdjust(Plan, konular, takvim, geribildirimler):
+    # geribildirimler: kullanıcı her tamamlanan oturum için {session_id, quality(0-5)}
+    FOR each fb IN geribildirimler:
+        session ← Plan.find(s => s.id == fb.session_id)
+        konu ← Konular.find(k => k.id == session.konu_id)
+        UpdateSM2AndMastery(konu, fb.quality, session.süre_dk)
+        # eğer mastery yeterli ise plan içindeki kalan seansları iptal et
+        IF konu.mastery >= HEDEF_MASTERY:
+            CancelRemainingSessionsForTopic(Plan, konu.id)
+
+    # Eğer sınavlara göre geri kaldıysak yeniden planla (örn. toplam kalan çalışma < gereken)
+    IF DetectBehindSchedule(Plan, konular, sınavlar):
+        # Hızlı yeniden dağıtım: artan önceliklere göre boş blok bul ve ekstra oturum ekle
+        RebalancePlan(Plan, konular, takvim)
+
+# Yardımcı: çakışmaları çözen ve molalar ekleyen fonksiyon
+FONKSİYON ResolveConflictsAndInsertBreaks(plan, takvim):
+    SORT plan by tarih,start
+    FOR i FROM 0 TO plan.length-2:
+        cur ← plan[i]; nxt ← plan[i+1]
+        IF cur.tarih == nxt.tarih AND cur.start + cur.süre_dk > nxt.start:
+            # çakışma -> ötele veya kırp
+            IF can_move(nxt): move nxt to next available slot
+            ELSE: shrink cur.süre_dk to fit (min MIN_OTURUM)
+    # Her ardışık çalışma (aynı gün, toplam > POMODORO * 2) arası molalar ekle
+    INSERT break sessions where uygun
+
+# --- SON ---
+
+
+     
